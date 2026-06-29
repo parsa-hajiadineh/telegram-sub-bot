@@ -1,15 +1,16 @@
 # DATABASE.md — Data Layer
 
 ## Database Engine
-**Google Sheets** (no SQL, no migrations, no ORM)
+**Supabase (PostgreSQL)**
 
-All data is stored in a single Google Spreadsheet identified by `SPREADSHEET_ID`.
-Authentication uses a Google service account (`GOOGLE_CREDENTIALS` env var or local `service-account.json` file).
+All data is stored in a Supabase project. Connection via `supabase-py` client using `SUPABASE_URL` and `SUPABASE_KEY` environment variables.
 
-## Sheet Auto-Creation
-On startup, `get_worksheet(name)` checks if each sheet exists. If not, it creates it and writes the header row defined in `SHEET_DEFINITIONS`.
+Schema file: `docs/schema.sql` — run once in Supabase SQL Editor to create all tables.
 
-## Sheets
+## Compatibility Layer
+The application uses a thin wrapper layer (`get_all_rows`, `append_row`, `update_row`, `find_user`) that maintains the same interface as the previous Google Sheets layer. Each data row returned by `get_all_rows` has the Supabase internal `id` appended at index `len(columns)` — used internally by `update_row` to identify the record. All other column indexes remain unchanged.
+
+## Tables
 
 ---
 
@@ -188,13 +189,18 @@ On startup, `get_worksheet(name)` checks if each sheet exists. If not, it create
 ---
 
 ## Access Patterns
-- All reads: full sheet scan via `get_all_rows()` — O(n) on all sheets
-- All writes: append row or update row by index
-- No indexes, no foreign key enforcement, no transactions
-- Concurrent writes: not safe — no locking mechanism
+- Reads: `get_all_rows()` → full table fetch ordered by `id`; `find_user()` → filtered query by `telegram_id`
+- Writes: `append_row()` → INSERT; `update_row()` → UPDATE WHERE id = ?
+- Indexes on high-frequency lookup columns (see `schema.sql`)
+- No foreign key enforcement (maintains backward compatibility with original design)
 
 ## Limitations
-- Google Sheets API rate limit: 300 requests per minute per project
-- No referential integrity between sheets
-- Row index for updates relies on list position — can drift if rows are deleted
-- All data is plain text (no typed columns)
+- All column values stored as TEXT (for backward compatibility with string-based code)
+- No transactions — concurrent writes can still cause race conditions
+- `get_all_rows()` fetches all rows for full-scan operations (same pattern as before)
+
+## Environment Variables
+| Variable | Purpose |
+|----------|---------|
+| `SUPABASE_URL` | Supabase project URL (e.g. `https://xxxx.supabase.co`) |
+| `SUPABASE_KEY` | Supabase anon/public API key |

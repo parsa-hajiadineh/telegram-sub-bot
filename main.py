@@ -26,10 +26,8 @@ from aiogram.utils.exceptions import (
     MessageToDeleteNotFound, MessageCantBeDeleted,
     MessageNotModified, CantParseEntities
 )
-from google.oauth2 import service_account
-import gspread
-from gspread.exceptions import APIError, WorksheetNotFound
 import base64
+from supabase import create_client, Client as SupabaseClient
 
 # ============================================
 # LOGGING CONFIGURATION
@@ -46,8 +44,8 @@ logger = logging.getLogger("TelegramBot")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_TELEGRAM_ID = os.getenv("ADMIN_TELEGRAM_ID")
 ADMIN2_TELEGRAM_ID = os.getenv("ADMIN2_TELEGRAM_ID")
-SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
-GOOGLE_CREDENTIALS_ENV = os.getenv("GOOGLE_CREDENTIALS")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 REQUIRED_CHANNELS = os.getenv("REQUIRED_CHANNELS", "")
 NORMAL_CHANNEL_ID = os.getenv("NORMAL_CHANNEL_ID")
@@ -67,46 +65,22 @@ INSTANCE_MODE = os.getenv("INSTANCE_MODE", "polling").lower()
 # Validation
 if not BOT_TOKEN:
     raise SystemExit("❌ BOT_TOKEN is missing!")
-if not SPREADSHEET_ID:
-    raise SystemExit("❌ SPREADSHEET_ID is missing!")
+if not SUPABASE_URL:
+    raise SystemExit("❌ SUPABASE_URL is missing!")
+if not SUPABASE_KEY:
+    raise SystemExit("❌ SUPABASE_KEY is missing!")
 
 REQUIRED_CHANNELS_LIST = [c.strip() for c in REQUIRED_CHANNELS.split(",") if c.strip()]
 
 # ============================================
-# GOOGLE SHEETS INITIALIZATION
+# SUPABASE INITIALIZATION
 # ============================================
-def load_google_credentials() -> Dict[str, Any]:
-    """Load Google credentials from env or file"""
-    if GOOGLE_CREDENTIALS_ENV:
-        try:
-            return json.loads(GOOGLE_CREDENTIALS_ENV)
-        except:
-            try:
-                decoded = base64.b64decode(GOOGLE_CREDENTIALS_ENV)
-                return json.loads(decoded.decode("utf-8"))
-            except Exception as e:
-                logger.error(f"Failed to parse GOOGLE_CREDENTIALS: {e}")
-    
-    if os.path.exists("service-account.json"):
-        with open("service-account.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    
-    raise SystemExit("❌ No Google credentials found!")
-
 try:
-    creds_info = load_google_credentials()
-    creds = service_account.Credentials.from_service_account_info(
-        creds_info,
-        scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
-    )
-    gc = gspread.authorize(creds)
-    logger.info("✅ Google Sheets initialized")
+    supabase_client: SupabaseClient = create_client(SUPABASE_URL, SUPABASE_KEY)
+    logger.info("✅ Supabase initialized")
 except Exception as e:
-    logger.exception(f"Failed to initialize Google Sheets: {e}")
-    raise SystemExit("Failed to init Google Sheets")
+    logger.exception(f"Failed to initialize Supabase: {e}")
+    raise SystemExit("Failed to init Supabase")
 
 # ============================================
 # SHEET STRUCTURE DEFINITIONS
@@ -174,104 +148,100 @@ SHEET_DEFINITIONS = {
 }
 
 # ============================================
-# GOOGLE SHEETS HELPERS
+# TABLE NAME MAPPING
 # ============================================
-_sheet_cache = {}
-_last_open_time = 0
+TABLE_MAP = {
+    "Users": "users",
+    "Subscriptions": "subscriptions",
+    "Purchases": "purchases",
+    "Referrals": "referrals",
+    "Withdrawals": "withdrawals",
+    "Tickets": "tickets",
+    "Config": "config",
+    "DiscountCodes": "discount_codes",
+    "GiftCards": "gift_cards",
+    "BoostCodes": "boost_codes",
+    "Affiliates": "affiliates",
+}
 
-def open_spreadsheet():
-    """Open spreadsheet with caching"""
-    global _last_open_time
-    current_time = time.time()
-    
-    if _sheet_cache.get("spreadsheet") and (current_time - _last_open_time) < 60:
-        return _sheet_cache["spreadsheet"]
-    
-    try:
-        sh = gc.open_by_key(SPREADSHEET_ID)
-        _sheet_cache["spreadsheet"] = sh
-        _last_open_time = current_time
-        return sh
-    except Exception as e:
-        logger.exception(f"Failed to open spreadsheet: {e}")
-        raise
+# ============================================
+# DATABASE HELPERS (Supabase)
+# ============================================
 
-def get_worksheet(sheet_name: str):
-    """Get or create worksheet with proper headers"""
+async def get_all_rows(sheet_name: str) -> List[List[str]]:
+    """Get all rows — returns [header_row, row1, row2, ...]
+    Each data row has the Supabase internal id appended at the end (index len(headers)).
+    """
     try:
-        sh = open_spreadsheet()
-        
-        try:
-            ws = sh.worksheet(sheet_name)
-        except WorksheetNotFound:
-            logger.info(f"Creating worksheet: {sheet_name}")
-            ws = sh.add_worksheet(title=sheet_name, rows="1000", cols="30")
-        
+        table = TABLE_MAP.get(sheet_name)
+        if not table:
+            logger.error(f"Unknown sheet: {sheet_name}")
+            return []
         headers = SHEET_DEFINITIONS.get(sheet_name, [])
-        if headers:
-            try:
-                existing = ws.row_values(1)
-                if not existing or existing[0] != headers[0]:
-                    ws.update("A1", [headers])
-                    logger.info(f"✅ Headers set for {sheet_name}")
-            except Exception as e:
-                logger.error(f"Failed to set headers for {sheet_name}: {e}")
-        
-        return ws
+        result = supabase_client.table(table).select("*").order("id").execute()
+        rows = [headers]
+        for record in result.data:
+            row = [str(record.get(h, "") or "") for h in headers]
+            row.append(record["id"])  # supabase id at index len(headers)
+            rows.append(row)
+        return rows
     except Exception as e:
-        logger.exception(f"Failed to get worksheet {sheet_name}: {e}")
-        raise
+        logger.exception(f"Failed to get rows from {sheet_name}: {e}")
+        return []
 
-def pad_row(row: List[Any], sheet_name: str) -> List[str]:
-    """Pad row to match header length"""
-    headers = SHEET_DEFINITIONS.get(sheet_name, [])
-    padded = [str(x) if x is not None else "" for x in row]
-    
-    while len(padded) < len(headers):
-        padded.append("")
-    
-    return padded[:len(headers)]
 
 async def append_row(sheet_name: str, row: List[Any]) -> bool:
-    """Append row to sheet"""
+    """Insert a new row into the table"""
     try:
-        ws = get_worksheet(sheet_name)
-        padded = pad_row(row, sheet_name)
-        ws.append_row(padded, value_input_option="USER_ENTERED")
+        table = TABLE_MAP.get(sheet_name)
+        headers = SHEET_DEFINITIONS.get(sheet_name, [])
+        if not table or not headers:
+            return False
+        data = {col: str(row[i]) if i < len(row) and row[i] is not None else ""
+                for i, col in enumerate(headers)}
+        supabase_client.table(table).insert(data).execute()
         return True
     except Exception as e:
         logger.exception(f"Failed to append row to {sheet_name}: {e}")
         return False
 
-async def get_all_rows(sheet_name: str) -> List[List[str]]:
-    """Get all rows from sheet"""
-    try:
-        ws = get_worksheet(sheet_name)
-        return ws.get_all_values()
-    except Exception as e:
-        logger.exception(f"Failed to get rows from {sheet_name}: {e}")
-        return []
 
 async def update_row(sheet_name: str, row_index: int, row: List[Any]) -> bool:
-    """Update specific row"""
+    """Update an existing row using Supabase id stored at row[len(headers)]"""
     try:
-        ws = get_worksheet(sheet_name)
-        padded = pad_row(row, sheet_name)
+        table = TABLE_MAP.get(sheet_name)
         headers = SHEET_DEFINITIONS.get(sheet_name, [])
-        range_name = f"A{row_index}:{chr(65 + len(headers) - 1)}{row_index}"
-        ws.update(range_name, [padded])
+        if not table or not headers:
+            return False
+        supabase_id = row[len(headers)] if len(row) > len(headers) else None
+        if supabase_id is None:
+            logger.error(f"No supabase id found in row for {sheet_name}")
+            return False
+        data = {col: str(row[i]) if i < len(row) and row[i] is not None else ""
+                for i, col in enumerate(headers)}
+        supabase_client.table(table).update(data).eq("id", supabase_id).execute()
         return True
     except Exception as e:
-        logger.exception(f"Failed to update row {row_index} in {sheet_name}: {e}")
+        logger.exception(f"Failed to update row in {sheet_name}: {e}")
         return False
 
+
 async def find_user(telegram_id: int) -> Optional[Tuple[int, List[str]]]:
-    """Find user row by telegram_id"""
-    rows = await get_all_rows("Users")
-    for idx, row in enumerate(rows[1:], start=2):
-        if row and str(row[0]) == str(telegram_id):
-            return idx, row
-    return None
+    """Find user by telegram_id — returns (supabase_id, row) or None"""
+    try:
+        result = supabase_client.table("users").select("*").eq(
+            "telegram_id", str(telegram_id)
+        ).execute()
+        if result.data:
+            headers = SHEET_DEFINITIONS["Users"]
+            record = result.data[0]
+            row = [str(record.get(h, "") or "") for h in headers]
+            row.append(record["id"])
+            return record["id"], row
+        return None
+    except Exception as e:
+        logger.exception(f"Failed to find user {telegram_id}: {e}")
+        return None
 
 # ============================================
 # BOT INITIALIZATION
