@@ -6451,12 +6451,12 @@ async def on_startup(dp):
     """On startup"""
     logger.info("🚀 Bot starting...")
     
-    for sheet_name in SHEET_DEFINITIONS.keys():
+    for sheet_name, table_name in TABLE_MAP.items():
         try:
-            get_worksheet(sheet_name)
-            logger.info(f"✅ Sheet: {sheet_name}")
+            supabase_client.table(table_name).select("id").limit(1).execute()
+            logger.info(f"✅ Table: {sheet_name}")
         except Exception as e:
-            logger.error(f"❌ Sheet {sheet_name}: {e}")
+            logger.error(f"❌ Table {sheet_name}: {e}")
     
     asyncio.create_task(rebuild_subscription_schedules())
     asyncio.create_task(poll_sheets_auto_process())
