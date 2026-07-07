@@ -26,6 +26,7 @@ from aiogram.utils.exceptions import (
     MessageToDeleteNotFound, MessageCantBeDeleted,
     MessageNotModified, CantParseEntities
 )
+from aiogram.dispatcher.middlewares import BaseMiddleware
 import base64
 from supabase import create_client, Client as SupabaseClient
 
@@ -251,6 +252,24 @@ dp = Dispatcher(bot)
 
 user_states = {}
 _last_bot_messages = {}
+
+# ============================================
+# MIDDLEWARE: Auto-clean user messages
+# ============================================
+class AutoCleanMiddleware(BaseMiddleware):
+    """پاک‌سازی خودکار پیام‌های دکمه‌ای کاربر برای خلوت ماندن چت"""
+    async def on_post_process_message(self, message: types.Message, results, data):
+        if not message.text or message.text.startswith('/'):
+            return
+        # اگه کاربر در حال وارد کردن اطلاعات است، پاک نکن
+        if message.from_user.id in user_states:
+            return
+        try:
+            await message.delete()
+        except Exception:
+            pass
+
+dp.middleware.setup(AutoCleanMiddleware())
 
 # ============================================
 # MIDDLEWARE: Channel Membership Check
@@ -802,7 +821,7 @@ Keyboards, Command Handlers, and Payment Processing
 # ============================================
 # KEYBOARDS
 # ============================================
-def main_menu_keyboard():
+def main_menu_keyboard(show_admin_btn: bool = False):
     """Main menu keyboard"""
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.row(
@@ -817,6 +836,8 @@ def main_menu_keyboard():
         KeyboardButton("💬 پشتیبانی"),
         KeyboardButton("📚 راهنما")
     )
+    if show_admin_btn:
+        kb.row(KeyboardButton("🔐 پنل ادمین"))
     return kb
 
 def admin_menu_keyboard():
@@ -4329,9 +4350,24 @@ async def handle_back_to_user_menu(message: types.Message):
     if not is_admin(message.from_user.id):
         return
     
-    await message.reply(
+    await send_and_record(
+        message.from_user.id,
         "🔄 بازگشت به منوی کاربر",
-        reply_markup=main_menu_keyboard()
+        reply_markup=main_menu_keyboard(show_admin_btn=True)
+    )
+
+
+@dp.message_handler(lambda msg: msg.text == "🔐 پنل ادمین")
+async def handle_go_to_admin_panel(message: types.Message):
+    """رفتن به پنل ادمین از منوی عادی"""
+    if not is_admin(message.from_user.id):
+        return
+    
+    await send_and_record(
+        message.from_user.id,
+        "🔐 <b>پنل ادمین</b>",
+        parse_mode="HTML",
+        reply_markup=admin_menu_keyboard()
     )
 
 
