@@ -1501,21 +1501,6 @@ async def generate_monthly_report(telegram_id: int) -> str:
                 except:
                     pass
         
-        # محاسبه رتبه
-        users_earnings = {}
-        for row in referrals_rows[1:]:
-            if not row or len(row) < 4:
-                continue
-            referrer = str(row[0])
-            try:
-                amount = float(row[3])
-                users_earnings[referrer] = users_earnings.get(referrer, 0) + amount
-            except:
-                pass
-        
-        sorted_users = sorted(users_earnings.items(), key=lambda x: x[1], reverse=True)
-        rank = next((i+1 for i, (uid, _) in enumerate(sorted_users) if uid == str(telegram_id)), len(sorted_users))
-        
         # ساخت پیام
         month_name = now.strftime("%B %Y")
         
@@ -1529,7 +1514,6 @@ async def generate_monthly_report(telegram_id: int) -> str:
             f"📊 <b>کل:</b>\n"
             f"👥 کل معرفی‌ها: <b>{total_referrals}</b> نفر\n"
             f"💵 کل درآمد: <b>${total_earnings:.2f}</b>\n\n"
-            f"🏆 <b>رتبه شما:</b> #{rank} از {len(users_earnings)} نفر\n"
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
         )
         
