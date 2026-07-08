@@ -167,3 +167,6 @@ CREATE TABLE IF NOT EXISTS user_states (
     updated_at TEXT DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS user_states_telegram_id_idx ON user_states(telegram_id);
+
+-- Refresh PostgREST schema cache
+NOTIFY pgrst, 'reload schema';
