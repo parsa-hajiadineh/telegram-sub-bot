@@ -104,8 +104,8 @@ async def handle_referral(message: types.Message):
     )
     kb_share.add(
         InlineKeyboardButton(
-            "🐦 اشتراک در توییتر",
-            url=f"https://twitter.com/intent/tweet?text={encoded_text}&url={encoded_link}"
+            "𝕏 اشتراک در X",
+            url=f"https://x.com/intent/tweet?text={encoded_text}&url={encoded_link}"
         )
     )
     

@@ -182,8 +182,8 @@ def social_share_keyboard(product: str = "subscription") -> InlineKeyboardMarkup
     )
     kb.add(
         InlineKeyboardButton(
-            "🐦 توییتر",
-            url=f"https://twitter.com/intent/tweet?text={encoded_text}&url={encoded_url}"
+            "𝕏 X",
+            url=f"https://x.com/intent/tweet?text={encoded_text}&url={encoded_url}"
         ),
         InlineKeyboardButton(
             "📘 فیسبوک",
