@@ -697,7 +697,7 @@ async def check_reserve_block(message: types.Message) -> bool:
     remaining = total_price - paid
     
     await send_and_record(
-        massage.from_user.id,
+        message.from_user.id,
         f"⏳ <b>پیش‌پرداخت فعال</b>\n\n"
         f"شما رزرو انجام داده‌اید:\n"
         f"📦 محصول: اشتراک {product_name}\n"
@@ -1536,7 +1536,7 @@ async def calculate_dashboard_stats() -> Dict[str, Any]:
             if not row or len(row) < 11:
                 continue
             
-            status = row[8] if len(row) > 8 else ""
+            status = row[9] if len(row) > 9 else ""
             amount = float(row[4]) if len(row) > 4 and row[4] else 0
             
             if status == "approved":

@@ -144,7 +144,7 @@ async def handle_admin_purchases_menu(message: types.Message):
         return
 
     rows = await get_all_rows("Purchases")
-    pending = [row for row in rows[1:] if row and len(row) > 8 and row[8] == "pending"]
+    pending = [row for row in rows[1:] if row and len(row) > 9 and row[9] == "pending"]
 
     if not pending:
         await message.reply("✅ خریدی در انتظار تایید نیست.")
@@ -716,7 +716,7 @@ async def cmd_admin_stats(message: types.Message):
 
     total_users = len(users) - 1
     active_subs = sum(1 for row in subs[1:] if row and len(row) > 3 and row[3] == "active")
-    total_revenue = sum(float(row[4]) for row in purchases[1:] if row and len(row) > 8 and row[8] == "approved")
+    total_revenue = sum(float(row[4]) for row in purchases[1:] if row and len(row) > 9 and row[9] == "approved")
 
     await message.reply(
         f"📊 <b>آمار</b>\n\n"
@@ -988,9 +988,9 @@ async def get_filtered_users(filter_type: str) -> list:
         # هدیه خریده و تایید شده
         seen = set()
         for row in purchases_rows[1:]:
-            if not row or len(row) < 9:
+            if not row or len(row) < 10:
                 continue
-            if row[3].startswith("gift_") and row[8] == "approved" and row[1] not in seen:
+            if row[3].startswith("gift_") and row[9] == "approved" and row[1] not in seen:
                 seen.add(row[1])
                 filtered.append(row[1])
 

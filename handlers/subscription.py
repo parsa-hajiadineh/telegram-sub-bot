@@ -561,7 +561,7 @@ async def handle_usdt_txid(message: types.Message):
     for idx, row in enumerate(rows[1:], start=2):
         if row and row[0] == purchase_id:
             row[7] = txid
-            row[8] = "pending"
+            row[9] = "pending"
             await update_row("Purchases", idx, row)
             break
     
