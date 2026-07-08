@@ -108,6 +108,9 @@ async def handle_referral(message: types.Message):
             url=f"https://x.com/intent/tweet?text={encoded_text}&url={encoded_link}"
         )
     )
+    kb_share.add(
+        InlineKeyboardButton("🔙 بازگشت به منو", callback_data="back_to_menu")
+    )
     
     await reply_and_record(message,
         f"🎁 <b>دعوت دوستان</b>\n\n"
