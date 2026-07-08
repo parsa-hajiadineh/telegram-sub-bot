@@ -159,3 +159,11 @@ CREATE TABLE IF NOT EXISTS affiliates (
     notes TEXT DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS affiliates_telegram_id_idx ON affiliates(telegram_id);
+
+CREATE TABLE IF NOT EXISTS user_states (
+    id BIGSERIAL PRIMARY KEY,
+    telegram_id TEXT NOT NULL,
+    state_data JSONB NOT NULL DEFAULT '{}',
+    updated_at TEXT DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS user_states_telegram_id_idx ON user_states(telegram_id);

@@ -37,7 +37,7 @@ from config import (
     REQUIRED_CHANNELS, NORMAL_CHANNEL_ID, PREMIUM_CHANNEL_ID, TEST_CHANNEL_ID,
     NORMAL_PRICE, PREMIUM_PRICE,
     TETHER_WALLET, CARD_NUMBER, CARD_HOLDER,
-    PORT, INSTANCE_MODE,
+    PORT,
     REQUIRED_CHANNELS_LIST,
     supabase_client,
     SHEET_DEFINITIONS, TABLE_MAP,
@@ -1771,6 +1771,8 @@ import handlers.support
 async def on_startup(dp):
     """On startup"""
     logger.info("🚀 Bot starting...")
+
+    user_states.load_all()
     
     for sheet_name, table_name in TABLE_MAP.items():
         try:

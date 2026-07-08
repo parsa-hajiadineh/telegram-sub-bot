@@ -33,7 +33,6 @@ CARD_NUMBER = os.getenv("CARD_NUMBER", "")
 CARD_HOLDER = os.getenv("CARD_HOLDER", "")
 
 PORT = int(os.getenv("PORT", "8000"))
-INSTANCE_MODE = os.getenv("INSTANCE_MODE", "polling").lower()
 
 # Validation
 if not BOT_TOKEN:
