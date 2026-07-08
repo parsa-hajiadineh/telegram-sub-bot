@@ -50,17 +50,9 @@ from bot_instance import bot, dp, user_states, _last_bot_messages
 # MIDDLEWARE: Auto-clean user messages
 # ============================================
 class AutoCleanMiddleware(BaseMiddleware):
-    """پاک‌سازی خودکار پیام‌های دکمه‌ای کاربر برای خلوت ماندن چت"""
+    """Track user messages; cleanup is handled by send_and_record / reply_and_record."""
     async def on_post_process_message(self, message: types.Message, results, data):
-        if not message.text or message.text.startswith('/'):
-            return
-        # اگه کاربر در حال وارد کردن اطلاعات است، پاک نکن
-        if message.from_user.id in user_states:
-            return
-        try:
-            await message.delete()
-        except Exception:
-            pass
+        pass
 
 dp.middleware.setup(AutoCleanMiddleware())
 
@@ -83,6 +75,7 @@ async def check_membership_for_all_messages(message: types.Message):
             user.id,
             "⚠️ <b>شما از کانال خارج شده‌اید!</b>\n\n"
             "برای ادامه استفاده از ربات باید دوباره عضو شوید.",
+            trigger=message,
             parse_mode="HTML",
             reply_markup=kb
         )
@@ -254,19 +247,63 @@ async def safe_delete_message(chat_id: int, message_id: int):
     except Exception:
         pass
 
-async def send_and_record(user_id: int, text: str, **kwargs):
-    """Send message and record for later deletion"""
+async def cleanup_previous_screen(user_id: int, trigger: types.Message = None):
+    """Delete prior bot screen and optional user trigger message."""
+    prev_bot = _last_bot_messages.pop(user_id, None)
+    if prev_bot:
+        await safe_delete_message(user_id, prev_bot)
+
+    if trigger:
+        await safe_delete_message(user_id, trigger.message_id)
+
+
+def record_screen(user_id: int, message_id: int):
+    """Track an inline-edited message as the current bot screen."""
+    _last_bot_messages[user_id] = message_id
+
+
+async def send_and_record(user_id: int, text: str, trigger: types.Message = None, **kwargs):
+    """Send a fresh bot message and replace the previous screen."""
+    kwargs.pop("reply_to_message_id", None)
     try:
-        prev_msg_id = _last_bot_messages.get(user_id)
-        if prev_msg_id:
-            await safe_delete_message(user_id, prev_msg_id)
-        
+        await cleanup_previous_screen(user_id, trigger)
         msg = await bot.send_message(user_id, text, **kwargs)
         _last_bot_messages[user_id] = msg.message_id
         return msg
     except Exception as e:
         logger.exception(f"Failed to send message to {user_id}: {e}")
         return None
+
+
+async def reply_and_record(message: types.Message, text: str, **kwargs):
+    """Drop-in replacement for message.reply() — no reply_to, cleans chat."""
+    kwargs.pop("reply_to_message_id", None)
+    user_id = message.from_user.id
+    try:
+        await cleanup_previous_screen(user_id, trigger=message)
+        msg = await bot.send_message(user_id, text, **kwargs)
+        _last_bot_messages[user_id] = msg.message_id
+        return msg
+    except Exception as e:
+        logger.exception(f"Failed to reply to {user_id}: {e}")
+        return None
+
+
+async def edit_screen(callback: types.CallbackQuery, text: str, **kwargs):
+    """Edit inline message and keep it tracked as the current screen."""
+    await callback.message.edit_text(text, **kwargs)
+    record_screen(callback.from_user.id, callback.message.message_id)
+
+
+async def transition_to_menu(callback: types.CallbackQuery, text: str = "از منوی زیر استفاده کنید:", **kwargs):
+    """Remove inline screen and show reply-keyboard menu."""
+    user_id = callback.from_user.id
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    _last_bot_messages.pop(user_id, None)
+    return await send_and_record(user_id, text, **kwargs)
 
 async def is_member_of_channel(channel_id: str, user_id: int) -> bool:
     """Check if user is member of channel"""
@@ -705,6 +742,7 @@ async def check_reserve_block(message: types.Message) -> bool:
         f"💰 باقیمانده: <b>${remaining:.2f}</b>\n\n"
         f"⚠️ برای استفاده از ربات، ابتدا باید پرداخت را تکمیل کنید.\n\n"
         f"💡 برای تکمیل، از منوی 💰 کیف پول → تکمیل پیش‌پرداخت استفاده کنید.",
+        trigger=message,
         parse_mode="HTML",
         reply_markup=main_menu_keyboard()
     )

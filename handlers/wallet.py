@@ -14,6 +14,7 @@ from keyboards import (
 from main import (
     is_admin,
     send_and_record,
+    reply_and_record,
     now_iso,
     parse_iso,
     get_user_balance,
@@ -59,6 +60,7 @@ async def handle_wallet(message: types.Message):
         f"💵 موجودی: <b>${balance:.2f}</b>\n"
         f"👥 معرفی: <b>{total_referrals}</b>{reserve_note}\n\n"
         f"{'💡 حداقل برداشت: $10' if balance < 10 else '✅ می‌توانید برداشت کنید'}",
+        trigger=message,
         parse_mode="HTML",
         reply_markup=kb
     )
@@ -213,7 +215,7 @@ async def handle_withdrawal_request(message: types.Message):
     parts = message.text.strip().split(maxsplit=1)
     
     if len(parts) < 2:
-        await message.reply(
+        await reply_and_record(message,
             "❌ فرمت نادرست!\n\n"
             "مثال صحیح:\n"
             "<code>15 6037991234567890</code> (برای کارت)\n"
@@ -225,15 +227,15 @@ async def handle_withdrawal_request(message: types.Message):
     try:
         amount = float(parts[0])
     except:
-        await message.reply("❌ مبلغ نامعتبر!")
+        await reply_and_record(message, "❌ مبلغ نامعتبر!")
         return
     
     if amount < 10:
-        await message.reply("❌ حداقل برداشت $10 است!")
+        await reply_and_record(message, "❌ حداقل برداشت $10 است!")
         return
     
     if amount > balance:
-        await message.reply(f"❌ موجودی کافی نیست! موجودی شما: ${balance:.2f}")
+        await reply_and_record(message, f"❌ موجودی کافی نیست! موجودی شما: ${balance:.2f}")
         return
     
     destination = parts[1]
@@ -241,7 +243,7 @@ async def handle_withdrawal_request(message: types.Message):
     # Validate destination format
     if method == "usdt":
         if not destination.startswith("0x") or len(destination) < 20:
-            await message.reply(
+            await reply_and_record(message,
                 "❌ آدرس ولت نامعتبر!\n\n"
                 "آدرس BEP20 باید با 0x شروع شود.\n"
                 "مثال: <code>0x1234567890abcdef1234567890abcdef12345678</code>",
@@ -282,7 +284,7 @@ async def handle_withdrawal_request(message: types.Message):
     
     user_states.pop(user.id, None)
     
-    await message.reply(
+    await reply_and_record(message,
         f"✅ <b>درخواست برداشت ثبت شد!</b>\n\n"
         f"🔢 شناسه: <code>{withdrawal_id}</code>\n"
         f"💰 مبلغ: <b>${amount}</b>\n"
@@ -486,7 +488,7 @@ async def handle_txid_for_withdrawal(message: types.Message):
     txid = message.text.strip()
     
     if len(txid) < 20:
-        await message.reply("❌ TXID نامعتبر است. لطفاً TXID صحیح را ارسال کنید.")
+        await reply_and_record(message, "❌ TXID نامعتبر است. لطفاً TXID صحیح را ارسال کنید.")
         return
     
     # Process approval
@@ -497,7 +499,7 @@ async def handle_txid_for_withdrawal(message: types.Message):
     
     user_states.pop(message.from_user.id, None)
     
-    await message.reply(
+    await reply_and_record(message,
         f"✅ <b>برداشت تایید و پردازش شد</b>\n\n"
         f"💰 مبلغ: ${amount}\n"
         f"🔗 TXID: <code>{txid}</code>\n\n"

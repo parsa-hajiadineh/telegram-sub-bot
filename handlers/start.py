@@ -12,6 +12,8 @@ from keyboards import main_menu_keyboard, admin_menu_keyboard, channel_membershi
 from main import (
     is_admin,
     send_and_record,
+    reply_and_record,
+    transition_to_menu,
     now_iso,
     parse_iso,
     get_active_subscription,
@@ -49,7 +51,8 @@ async def cmd_start(message: types.Message):
             await activate_subscription(user.id, user.username or "", product, "gift")
         
             # پیام به گیرنده
-            await message.reply(
+            await reply_and_record(
+                message,
                 f"🎊 <b>تبریک! هدیه دریافت شد!</b>\n\n"
                 f"🎁 از طرف: @{buyer_username}\n"
                 f"💎 اشتراک: {'ویژه' if product == 'premium' else 'معمولی'}\n"
@@ -82,7 +85,8 @@ async def cmd_start(message: types.Message):
         
             return
         else:
-            await message.reply(
+            await reply_and_record(
+                message,
                 "❌ <b>کد هدیه نامعتبر!</b>\n\n"
                 "این کد قبلاً استفاده شده یا اشتباه است.",
                 parse_mode="HTML"
@@ -101,6 +105,7 @@ async def cmd_start(message: types.Message):
                 user.id,
                 "🔐 <b>برای استفاده از ربات ابتدا باید در کانال‌های زیر عضو شوید:</b>\n\n"
                 "پس از عضویت روی <b>✅ بررسی عضویت</b> کلیک کنید.",
+                trigger=message,
                 parse_mode="HTML",
                 reply_markup=kb
             )
@@ -120,6 +125,7 @@ async def cmd_start(message: types.Message):
                 user.id,
                 "📧 <b>لطفاً ایمیل خود را وارد کنید:</b>\n\n"
                 "مثال: <code>example@gmail.com</code>",
+                trigger=message,
                 parse_mode="HTML"
             )
             return
@@ -157,6 +163,7 @@ async def cmd_start(message: types.Message):
             "👋 <b>خوش آمدید!</b>\n\n"
             "📧 لطفاً ایمیل خود را وارد کنید:\n\n"
             "مثال: <code>example@gmail.com</code>",
+            trigger=message,
             parse_mode="HTML"
         )
         return  # ✅ فیکس #1: این return ضروریه!
@@ -184,6 +191,7 @@ async def cmd_start(message: types.Message):
             f"✅ اشتراک: {sub_name}\n"
             f"📅 انقضا: <code>{expires_str}</code>\n\n"
             f"از منوی زیر استفاده کنید:",
+            trigger=message,
             parse_mode="HTML",
             reply_markup=menu_kb
         )
@@ -197,6 +205,7 @@ async def cmd_start(message: types.Message):
         await send_and_record(
             user.id,
             f"{greeting}\n\n{status_msg}",
+            trigger=message,
             parse_mode="HTML",
             reply_markup=menu_kb
         )
@@ -212,7 +221,8 @@ async def cmd_am_i_admin(message: types.Message):
     
     result = is_admin(user_id)
     
-    await message.reply(
+    await reply_and_record(
+        message,
         f"🆔 <b>ID شما:</b> <code>{user_id}</code>\n\n"
         f"👤 <b>ادمین اصلی:</b> <code>{admin1}</code>\n"
         f"👤 <b>ادمین دوم:</b> <code>{admin2 or 'تنظیم نشده'}</code>\n\n"
@@ -232,16 +242,10 @@ async def callback_check_membership(callback: types.CallbackQuery):
     if is_member:
         await callback.answer("✅ عضویت تایید شد!", show_alert=True)
         await create_or_update_user(user)
-        
-        await callback.message.edit_text(
-            "✅ <b>عضویت شما تایید شد!</b>\n\n"
-            "اکنون می‌توانید از ربات استفاده کنید.",
-            parse_mode="HTML"
-        )
-        
-        await bot.send_message(
-            user.id,
-            "از منوی زیر استفاده کنید:",
+        await transition_to_menu(
+            callback,
+            "✅ <b>عضویت شما تایید شد!</b>\n\nاز منوی زیر استفاده کنید:",
+            parse_mode="HTML",
             reply_markup=main_menu_keyboard()
         )
     else:
@@ -252,16 +256,7 @@ async def callback_check_membership(callback: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: c.data == "close_share")
 async def callback_close_share(callback: types.CallbackQuery):
     """Close share window"""
-    try:
-        await callback.message.delete()
-    except:
-        pass
-    
-    await bot.send_message(
-        callback.from_user.id,
-        "از منوی زیر استفاده کنید:",
-        reply_markup=main_menu_keyboard()
-    )
+    await transition_to_menu(callback, reply_markup=main_menu_keyboard())
     await callback.answer()
 
 
@@ -277,7 +272,8 @@ async def handle_email_input(message: types.Message):
     attempt = state.get("attempt", 1)
     
     if not is_valid_email(email):
-        await message.reply(
+        await reply_and_record(
+            message,
             "❌ ایمیل نامعتبر!\n\n"
             "مثال صحیح: <code>example@gmail.com</code>",
             parse_mode="HTML"
@@ -291,7 +287,8 @@ async def handle_email_input(message: types.Message):
             "attempt": 2
         }
         
-        await message.reply(
+        await reply_and_record(
+            message,
             f"📧 ایمیل: <code>{email}</code>\n\n"
             "⚠️ برای تایید دوباره وارد کنید:",
             parse_mode="HTML"
@@ -307,7 +304,8 @@ async def handle_email_confirmation(message: types.Message):
     
     if email_confirm != original_email:
         user_states[user.id] = {"state": "awaiting_email", "attempt": 1}
-        await message.reply(
+        await reply_and_record(
+            message,
             "❌ <b>ایمیل‌ها مطابقت ندارند!</b>\n\n"
             "دوباره وارد کنید:",
             parse_mode="HTML"
@@ -324,8 +322,13 @@ async def handle_email_confirmation(message: types.Message):
     
     user_states.pop(user.id, None)
     
-    await message.reply("✅ <b>ایمیل ثبت شد!</b>", parse_mode="HTML")
-    await send_and_record(user.id, "از منوی زیر استفاده کنید:", reply_markup=main_menu_keyboard())
+    await send_and_record(
+        user.id,
+        "✅ <b>ایمیل ثبت شد!</b>\n\nاز منوی زیر استفاده کنید:",
+        trigger=message,
+        parse_mode="HTML",
+        reply_markup=main_menu_keyboard()
+    )
 
 # ============================================
 # MENU HANDLERS
@@ -344,19 +347,19 @@ async def handle_test_channel(message: types.Message):
         return
     
     if not TEST_CHANNEL_ID:
-        await message.reply("❌ کانال تست در دسترس نیست.")
+        await reply_and_record(message, "❌ کانال تست در دسترس نیست.")
         return
     
     rows = await get_all_rows("Purchases")
     for row in rows[1:]:
         if row and str(row[1]) == str(user.id) and row[3] == "test":
-            await message.reply("⚠️ شما قبلاً از تست استفاده کرده‌اید.")
+            await reply_and_record(message, "⚠️ شما قبلاً از تست استفاده کرده‌اید.")
             return
     
     link = await create_invite_link(TEST_CHANNEL_ID, expire_minutes=5)
     
     if not link:
-        await message.reply("❌ خطا در ایجاد لینک.")
+        await reply_and_record(message, "❌ خطا در ایجاد لینک.")
         return
     
     purchase_id = generate_purchase_id()
@@ -366,7 +369,8 @@ async def handle_test_channel(message: types.Message):
         "approved", now_iso(), now_iso(), "system", "5min test"
     ])
     
-    await message.reply(
+    await reply_and_record(
+        message,
         "🎉 <b>لینک تست (۵ دقیقه):</b>\n\n"
         f"{link}\n\n"
         "⏰ بعد از ۵ دقیقه حذف می‌شوید.",

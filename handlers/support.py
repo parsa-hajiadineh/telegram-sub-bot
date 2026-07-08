@@ -12,6 +12,10 @@ from jobs import generate_monthly_report
 from main import (
     check_membership_for_all_messages,
     check_reserve_block,
+    send_and_record,
+    reply_and_record,
+    transition_to_menu,
+    record_screen,
     now_iso,
     generate_ticket_id,
     get_user_boost,
@@ -44,7 +48,7 @@ async def handle_referral(message: types.Message):
             break
     
     if not has_purchase:
-        await message.reply(
+        await reply_and_record(message,
             "⚠️ <b>برای استفاده از سیستم معرفی، ابتدا باید اشتراک خریداری کنید.</b>\n\n"
             "پس از خرید و تایید، کد معرف فعال می‌شود.",
             parse_mode="HTML",
@@ -55,7 +59,7 @@ async def handle_referral(message: types.Message):
     result = await find_user(user.id)
     
     if not result:
-        await message.reply("❌ خطا در بارگذاری اطلاعات.", reply_markup=main_menu_keyboard())
+        await reply_and_record(message, "❌ خطا در بارگذاری اطلاعات.", reply_markup=main_menu_keyboard())
         return
     
     _, row = result
@@ -105,7 +109,7 @@ async def handle_referral(message: types.Message):
         )
     )
     
-    await message.reply(
+    await reply_and_record(message,
         f"🎁 <b>دعوت دوستان</b>\n\n"
         f"🔗 <b>لینک:</b>\n<code>{referral_link}</code>\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -142,7 +146,7 @@ async def handle_support(message: types.Message):
     
     user_states[message.from_user.id] = {"state": "awaiting_support_message"}
     
-    await message.reply(
+    await reply_and_record(message,
         "💬 <b>پشتیبانی</b>\n\n"
         "پیام خود را ارسال کنید.\n"
         "به زودی پاسخ داده می‌شود.",
@@ -165,7 +169,7 @@ async def handle_support_message(message: types.Message):
     
     user_states.pop(user.id, None)
     
-    await message.reply(
+    await reply_and_record(message,
         f"✅ <b>تیکت ثبت شد!</b>\n\n"
         f"🔢 <code>{ticket_id}</code>\n\n"
         f"⏳ به زودی پاسخ می‌دهیم.",
@@ -199,7 +203,7 @@ async def handle_help(message: types.Message):
     if not await check_reserve_block(message):
         return
     
-    await message.reply(
+    await reply_and_record(message,
         "📚 <b>راهنما</b>\n\n"
         "🆓 <b>تست کانال:</b>\n"
         "• ۵ دقیقه رایگان\n"
@@ -245,9 +249,9 @@ async def cmd_report(message: types.Message):
     report = await generate_monthly_report(user.id)
     
     if report:
-        await message.reply(report, parse_mode="HTML", reply_markup=main_menu_keyboard())
+        await reply_and_record(message, report, parse_mode="HTML", reply_markup=main_menu_keyboard())
     else:
-        await message.reply(
+        await reply_and_record(message,
             "❌ خطا در ساخت گزارش.\n"
             "لطفاً بعداً تلاش کنید.",
             reply_markup=main_menu_keyboard()
@@ -272,14 +276,14 @@ async def cmd_redeem_secret(message: types.Message):
         return
     
     if result.get("error") == "already_boosted":
-        await message.reply(
+        await reply_and_record(message,
             "✅ <b>شما قبلاً یک آفر ویژه فعال دارید!</b>",
             parse_mode="HTML"
         )
         return
     
     # موفق شد
-    await message.reply(
+    await reply_and_record(message,
         f"🌟 <b>آفر ویژه فعال شد!</b>\n\n"
         f"💎 سطح 1: <b>{result['level1_percent']}%</b>\n"
         f"💎 سطح 2: <b>{result['level2_percent']}%</b>\n\n"
@@ -309,12 +313,7 @@ async def cmd_redeem_secret(message: types.Message):
 @dp.callback_query_handler(lambda c: c.data == "back_to_menu")
 async def callback_back_to_menu(callback: types.CallbackQuery):
     """Back to menu"""
-    await callback.message.delete()
-    await bot.send_message(
-        callback.from_user.id,
-        "منوی اصلی:",
-        reply_markup=main_menu_keyboard()
-    )
+    await transition_to_menu(callback, reply_markup=main_menu_keyboard())
     await callback.answer()
 
 @dp.callback_query_handler(lambda c: c.data == "back_to_buy")
@@ -329,4 +328,5 @@ async def callback_back_to_buy(callback: types.CallbackQuery):
         parse_mode="HTML",
         reply_markup=kb
     )
+    record_screen(callback.from_user.id, callback.message.message_id)
     await callback.answer()

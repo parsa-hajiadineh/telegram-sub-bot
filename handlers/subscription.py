@@ -22,6 +22,8 @@ from keyboards import (
 from main import (
     is_admin,
     send_and_record,
+    reply_and_record,
+    record_screen,
     now_iso,
     generate_purchase_id,
     check_membership_for_all_messages,
@@ -60,6 +62,7 @@ async def handle_buy_subscription(message: types.Message):
         f"   • هر دو کانال\n"
         f"   • ۶ ماه\n\n"
         f"یک گزینه انتخاب کنید:",
+        trigger=message,
         parse_mode="HTML",
         reply_markup=kb
     )
@@ -79,6 +82,7 @@ async def callback_buy(callback: types.CallbackQuery):
         parse_mode="HTML",
         reply_markup=kb
     )
+    record_screen(callback.from_user.id, callback.message.message_id)
     await callback.answer()
 
 @dp.callback_query_handler(lambda c: c.data == "buy_reserve")
@@ -273,7 +277,7 @@ async def handle_discount_code_input(message: types.Message):
             "discount_percent": discount_percent
         }
         
-        await message.reply(
+        await reply_and_record(message,
             f"✅ <b>کد تخفیف معتبر!</b>\n\n"
             f"🎟 کد: <code>{code}</code>\n"
             f"💰 تخفیف: <b>{discount_percent}%</b>\n\n"
@@ -284,7 +288,7 @@ async def handle_discount_code_input(message: types.Message):
     else:
         user_states.pop(user.id, None)
         
-        await message.reply(
+        await reply_and_record(message,
             "❌ <b>کد تخفیف نامعتبر!</b>\n\n"
             "کد وارد شده منقضی شده یا اشتباه است.",
             parse_mode="HTML",
@@ -312,7 +316,7 @@ async def handle_gift_message(message: types.Message):
     
     kb = payment_method_keyboard(f"gift_{product}")
     
-    await message.reply(
+    await reply_and_record(message,
         f"💳 <b>پرداخت هدیه</b>\n\n"
         f"💰 مبلغ: <b>${price_usd}</b>\n"
         f"🎁 نوع: {'معمولی' if product == 'normal' else 'ویژه'}\n"
@@ -433,6 +437,7 @@ async def callback_payment_method(callback: types.CallbackQuery):
             f"⏰ پس از تایید، {'رزرو ثبت می‌شود' if is_reserve else 'اشتراک فعال می‌شود'}.",
             parse_mode="HTML"
         )
+        record_screen(user.id, callback.message.message_id)
     
     # ─────────────────────────────────────────────────────────
     # پرداخت تتر
@@ -475,6 +480,7 @@ async def callback_payment_method(callback: types.CallbackQuery):
             f"🔢 شناسه: <code>{purchase_id}</code>",
             parse_mode="HTML"
         )
+        record_screen(user.id, callback.message.message_id)
     
     await callback.answer()
 
@@ -490,7 +496,7 @@ async def handle_card_receipt(message: types.Message):
     amount_irr = state.get("amount_irr")
     
     if not purchase_id:
-        await message.reply("❌ خطا: سفارش یافت نشد.")
+        await reply_and_record(message, "❌ خطا: سفارش یافت نشد.")
         return
     
     # Save photo to purchases
@@ -506,7 +512,7 @@ async def handle_card_receipt(message: types.Message):
     
     user_states.pop(user.id, None)
     
-    await message.reply(
+    await reply_and_record(message,
         "✅ <b>رسید دریافت شد!</b>\n\n"
         f"🔢 شناسه: <code>{purchase_id}</code>\n\n"
         "⏳ در حال بررسی توسط پشتیبان...",
@@ -550,11 +556,11 @@ async def handle_usdt_txid(message: types.Message):
     txid = message.text.strip()
     
     if not purchase_id:
-        await message.reply("❌ سفارش یافت نشد.")
+        await reply_and_record(message, "❌ سفارش یافت نشد.")
         return
     
     if len(txid) < 20:
-        await message.reply("❌ TXID نامعتبر!")
+        await reply_and_record(message, "❌ TXID نامعتبر!")
         return
     
     rows = await get_all_rows("Purchases")
@@ -567,7 +573,7 @@ async def handle_usdt_txid(message: types.Message):
     
     user_states.pop(user.id, None)
     
-    await message.reply(
+    await reply_and_record(message,
         f"✅ <b>TXID دریافت شد!</b>\n\n"
         f"🔢 <code>{purchase_id}</code>\n\n"
         f"⏳ در حال بررسی...",
