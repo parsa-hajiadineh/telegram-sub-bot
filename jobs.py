@@ -17,7 +17,8 @@ from keyboards import (
 
 async def schedule_expiry(telegram_id: int, channels: List[str], delay: float):
     """Schedule subscription expiry"""
-    from main import bot, remove_from_channel
+    from bot_instance import bot
+    from main import remove_from_channel
     try:
         await asyncio.sleep(delay)
 
@@ -51,7 +52,7 @@ async def schedule_expiry(telegram_id: int, channels: List[str], delay: float):
 
 async def schedule_expiry_reminders(telegram_id: int, expires: datetime):
     """Schedule expiry reminder notifications"""
-    from main import bot
+    from bot_instance import bot
     try:
         now = datetime.utcnow()
 
@@ -189,7 +190,7 @@ async def generate_monthly_report(telegram_id: int) -> str:
 
 async def send_monthly_reports():
     """Send monthly reports to all active users"""
-    from main import bot
+    from bot_instance import bot
     while True:
         try:
             # محاسبه زمان تا اول ماه آینده
@@ -240,7 +241,8 @@ async def send_monthly_reports():
 
 async def schedule_test_removal(user_id: int, channel_id: str):
     """Schedule test removal"""
-    from main import bot, remove_from_channel
+    from bot_instance import bot
+    from main import remove_from_channel
     try:
         await asyncio.sleep(300)
         await remove_from_channel(channel_id, user_id)
@@ -258,8 +260,9 @@ async def schedule_test_removal(user_id: int, channel_id: str):
 
 async def poll_sheets_auto_process():
     """Check Purchases and Tickets every 30 seconds - Simple Admin Mode"""
+    from bot_instance import bot, user_states
     from main import (
-        bot, user_states, now_iso,
+        now_iso,
         set_user_reserve, get_user_reserve_status,
         activate_subscription, process_referral_commission,
         clear_user_reserve, create_gift_card,

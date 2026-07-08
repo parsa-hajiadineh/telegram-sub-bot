@@ -44,15 +44,7 @@ from config import (
 )
 
 from sheets import get_all_rows, append_row, update_row, find_user
-
-# ============================================
-# BOT INITIALIZATION
-# ============================================
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot)
-
-user_states = {}
-_last_bot_messages = {}
+from bot_instance import bot, dp, user_states, _last_bot_messages
 
 # ============================================
 # MIDDLEWARE: Auto-clean user messages
