@@ -1,11 +1,11 @@
 # DECISIONS.md — Architecture Decision Records
 
-## ADR-001: Single-File Architecture
-**Status:** Existing  
-**Date:** Unknown  
-**Decision:** All application code lives in `main.py` (~6,630 lines)  
-**Reason:** Unknown — the file shows evidence of being three separate parts concatenated into one (`# Part 1/3`, `# Part 2/3`, `# Part 3A/3B` comments)  
-**Consequence:** High coupling, difficult to navigate, merge conflicts likely at scale
+## ADR-001: Modular Architecture (refactored from single-file)
+**Status:** Completed — Jul 2026  
+**Decision:** Refactored from a single `main.py` (~6,630 lines) into separate modules with no logic changes  
+**Modules:** `config.py`, `sheets.py`, `keyboards.py`, `bot_instance.py`, `jobs.py`, `handlers/admin.py`, `handlers/start.py`, `handlers/subscription.py`, `handlers/wallet.py`, `handlers/support.py`  
+**Import strategy:** Handler modules import utilities from `main` (not circular — `main` imports handlers last); `bot_instance.py` breaks the bot/dispatcher circular dependency  
+**Consequence:** Each concern is isolated; `main.py` is now business logic + entry point only
 
 ---
 

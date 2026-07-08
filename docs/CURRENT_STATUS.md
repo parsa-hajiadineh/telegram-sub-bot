@@ -6,10 +6,10 @@
 
 | Metric | Value |
 |--------|-------|
-| Total lines | ~6,630 |
-| Files | 4 (main.py, requirements.txt, Dockerfile, render.yaml) |
+| Total lines | ~1,800 (main.py) + ~4,000 (handlers/* + support modules) |
+| Python files | 10 (main.py, config.py, sheets.py, keyboards.py, bot_instance.py, jobs.py, handlers × 5) |
 | Test coverage | 0% — no tests exist |
-| Documentation | None before this docs/ folder |
+| Documentation | docs/ folder |
 | Linting | Unknown — no linter config present |
 | Type hints | None |
 

@@ -18,12 +18,7 @@ No formal roadmap exists in the repository. The items below are derived from kno
 - [ ] Add error logging (e.g. forward exceptions to admin Telegram ID or external service)
 
 ### Medium Priority
-- [ ] Split `main.py` into separate modules for maintainability
-  - `config.py` — environment variables
-  - `sheets.py` — Google Sheets abstraction
-  - `handlers/` — message and callback handlers
-  - `jobs.py` — background tasks
-  - `keyboards.py` — keyboard builders
+- [x] ~~Split `main.py` into separate modules~~ — **Done (Jul 2026)**
 - [ ] Implement webhook mode (remove `INSTANCE_MODE` dead code or implement it)
 - [ ] Add duplicate purchase guard at checkout
 - [ ] Add rate limiting on payment submission

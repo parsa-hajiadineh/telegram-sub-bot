@@ -16,11 +16,23 @@ Python 3.11 · aiogram 2.25.1 · Google Sheets (database) · aiohttp (health ser
 
 ## File Structure
 ```
-main.py          ← ENTIRE application (~6,630 lines, 3 concatenated parts)
-requirements.txt ← 4 dependencies
-Dockerfile       ← python:3.11-slim
-render.yaml      ← Render web service (free tier, Docker)
-docs/            ← This documentation folder
+config.py           ← env vars, constants, logger
+sheets.py           ← all Google Sheets / Supabase read-write functions
+keyboards.py        ← all keyboard builder functions
+bot_instance.py     ← Bot, Dispatcher, user_states, _last_bot_messages
+jobs.py             ← background tasks (expiry, reminders, monthly reports)
+main.py             ← business logic, utility functions, startup/entry point (~1,800 lines)
+handlers/
+  __init__.py
+  admin.py          ← admin panel handlers
+  start.py          ← /start, membership check, email, test channel
+  subscription.py   ← purchase, payment, gift card, discount handlers
+  wallet.py         ← wallet, withdrawal, reserve completion handlers
+  support.py        ← referral, support ticket, help, /report, /redeem handlers
+requirements.txt    ← dependencies
+Dockerfile          ← python:3.11-slim
+render.yaml         ← Render web service (free tier, Docker)
+docs/               ← This documentation folder
 ```
 
 ---
@@ -94,17 +106,17 @@ All reads are full-sheet scans. No indexes, no transactions.
 
 ---
 
-## Navigating main.py
-| Section | Lines (approx) |
-|---------|---------------|
-| Config & env vars | 1–100 |
-| Google Sheets layer | 100–400 |
-| User/business logic | 400–824 |
-| Keyboard builders | 824–1100 |
-| Message & callback handlers | 1100–4000 |
-| Admin system | 4000–5500 |
-| Background jobs | 5500–6200 |
-| Startup / entry point | 6200–6630 |
+## Navigating main.py (~1,800 lines)
+| Section | Contents |
+|---------|----------|
+| Imports & setup | Libraries, Supabase client, TABLE_MAP |
+| Utility functions | `now_iso`, `parse_iso`, `generate_*`, `is_admin`, `send_and_record`, channel helpers |
+| Balance / reserve | `get_user_balance`, `update_user_balance`, `get_user_reserve_status`, `set_user_reserve`, `clear_user_reserve` |
+| Subscription logic | `get_active_subscription`, `activate_subscription` |
+| Referral / affiliate | `process_referral_commission`, `get_referral_chain`, affiliate CRUD |
+| Discount / gift / boost | `validate_discount_code`, `create_gift_card`, `redeem_gift_card`, `validate_and_apply_boost`, `get_user_boost` |
+| Dashboard | `calculate_dashboard_stats` |
+| Startup / entry point | `on_startup`, `on_shutdown`, `start_health_server`, `if __name__ == "__main__"` |
 
 ---
 
